@@ -1,0 +1,13 @@
+{
+  "name": "rp-voting-online",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Онлайн-голосование за партии РП",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0"
+  }
+}

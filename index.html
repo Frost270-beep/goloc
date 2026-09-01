@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Голосование — РП</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#111;color:#f4f4f4;min-height:100vh;padding:32px 16px}.wrap{width:min(900px,100%);margin:auto}header{text-align:center;margin-bottom:28px}h1{margin:0 0 8px;font-size:clamp(30px,6vw,52px)}header p{color:#aaa;margin:0;font-size:17px}.notice{background:#1b1b1b;border:1px solid #333;border-radius:14px;padding:14px 18px;margin-bottom:20px;text-align:center;color:#ccc}.parties{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}.party{background:#1a1a1a;border:2px solid #333;border-radius:18px;padding:24px;cursor:pointer;transition:.2s}.party:hover{transform:translateY(-3px);border-color:#777}.party.selected{border-color:#fff;box-shadow:0 0 0 3px #ffffff18}.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#292929;color:#bbb;font-size:12px;margin-bottom:12px}.party h2{margin:0 0 8px;font-size:27px}.rep{color:#aaa;margin-bottom:18px}ul{padding-left:20px;color:#ddd;line-height:1.6}.actions{text-align:center;margin:24px 0}button{border:0;border-radius:12px;padding:14px 28px;font-size:17px;font-weight:700;cursor:pointer;background:#f4f4f4;color:#111}button:disabled{opacity:.35;cursor:not-allowed}.status{text-align:center;min-height:24px;color:#ccc}.results{display:none;background:#1a1a1a;border:1px solid #333;border-radius:18px;padding:22px;margin-top:20px}.results h2{margin-top:0}.row{margin:18px 0}.label{display:flex;justify-content:space-between;margin-bottom:7px}.bar{height:13px;background:#2b2b2b;border-radius:99px;overflow:hidden}.fill{height:100%;width:0;background:#eee;transition:width .5s}.foot{text-align:center;color:#777;font-size:12px;margin-top:20px}@media(max-width:700px){.parties{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>ГОЛОСОВАНИЕ</h1><p>Выберите партию, которую вы поддерживаете</p></header>
+<div class="notice">Голосование проводится онлайн. Результаты общие для всех посетителей.</div>
+
+<section class="parties">
+<article class="party" data-party="fair" onclick="selectParty('fair')">
+<span class="badge">ПАРТИЯ №1</span>
+<h2>Справедливое РП</h2>
+<div class="rep">Представитель — <b>Тору Ивасаки</b></div>
+<ul>
+<li>Против кубика на случайный исход</li>
+<li>Решения на основе SPECIAL-статов</li>
+<li>Логика и способности персонажа имеют значение</li>
+<li>Обоснованные действия вместо бессмысленного рандома</li>
+</ul>
+</article>
+
+<article class="party" data-party="dice" onclick="selectParty('dice')">
+<span class="badge">ПАРТИЯ №2</span>
+<h2>Единый Кубик</h2>
+<div class="rep">Представитель — <b>@Сабуро Ито</b></div>
+<ul>
+<li>Система с единым кубиком</li>
+<li>Случайность как основа определения исхода</li>
+<li>Простой и единый принцип для игроков</li>
+</ul>
+</article>
+</section>
+
+<div class="actions"><button id="voteBtn" disabled onclick="vote()">Проголосовать</button></div>
+<div class="status" id="status"></div>
+
+<section class="results" id="results">
+<h2>Результаты</h2>
+<div class="row"><div class="label"><span>Справедливое РП</span><b id="fairPct">0%</b></div><div class="bar"><div class="fill" id="fairBar"></div></div></div>
+<div class="row"><div class="label"><span>Единый Кубик</span><b id="dicePct">0%</b></div><div class="bar"><div class="fill" id="diceBar"></div></div></div>
+<div id="total" class="foot"></div>
+</section>
+<div class="foot">Онлайн-голосование • Результаты обновляются с сервера</div>
+</div>
+
+<script>
+let selected=null;
+function selectParty(p){
+ selected=p;
+ document.querySelectorAll('.party').forEach(e=>e.classList.remove('selected'));
+ document.querySelector(`[data-party="${p}"]`).classList.add('selected');
+ document.getElementById('voteBtn').disabled=false;
+ document.getElementById('status').textContent='';
+}
+async function vote(){
+ if(!selected)return;
+ const btn=document.getElementById('voteBtn');
+ btn.disabled=true; btn.textContent='Отправка...';
+ try{
+  const r=await fetch('/api/vote',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({party:selected})});
+  const data=await r.json();
+  if(!r.ok)throw new Error(data.error||'Ошибка голосования');
+  localStorage.setItem('hasVoted','1');
+  document.getElementById('status').textContent='Ваш голос учтён.';
+  btn.textContent='Голос учтён';
+  showResults(data);
+ }catch(e){
+  document.getElementById('status').textContent=e.message;
+  btn.disabled=false;btn.textContent='Проголосовать';
+  await loadResults();
+ }
+}
+function showResults(v){
+ const total=v.total||v.fair+v.dice;
+ const fair=total?Math.round(v.fair/total*100):0;
+ const dice=total?100-fair:0;
+ document.getElementById('results').style.display='block';
+ document.getElementById('fairPct').textContent=fair+'%';
+ document.getElementById('dicePct').textContent=dice+'%';
+ document.getElementById('fairBar').style.width=fair+'%';
+ document.getElementById('diceBar').style.width=dice+'%';
+ document.getElementById('total').textContent='Всего голосов: '+total;
+}
+async function loadResults(){
+ try{
+  const r=await fetch('/api/results'); const data=await r.json(); showResults(data);
+  if(localStorage.getItem('hasVoted')){document.getElementById('voteBtn').disabled=true;document.getElementById('voteBtn').textContent='Голос уже учтён';}
+ }catch(e){document.getElementById('status').textContent='Не удалось загрузить результаты.'}
+}
+loadResults();
+setInterval(loadResults,15000);
+</script>
+</body>
+</html>
